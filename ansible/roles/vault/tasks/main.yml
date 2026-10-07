@@ -3,6 +3,34 @@
 # Deploys HashiCorp Vault OSS onto a RHEL node and configures it for
 # Raft HA with Azure KMS auto-unseal.
 
+# ---------------------------------------------------------------------------
+# OS hardening — must run BEFORE Vault is installed (per Syed Zaidi review)
+# Based on OS baseline audit of existing sandbox (10/7/2026):
+#   - swappiness was 30 on existing node — set to 0 on new ACI VMs
+#   - swap was disabled on existing node — ensure no swap on ACI VMs
+#   - SELinux was Disabled on existing node — match that state
+#   - FirewallD was not running — ports managed at ACI EPG layer
+# ---------------------------------------------------------------------------
+
+- name: Set vm.swappiness to 0 (prevent secrets being swapped to disk)
+  ansible.posix.sysctl:
+    name: vm.swappiness
+    value: "0"
+    state: present
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-vault-hardening.conf
+
+- name: Disable swap immediately
+  ansible.builtin.command: swapoff -a
+  changed_when: false
+  ignore_errors: true
+
+- name: Remove swap entries from /etc/fstab (persist across reboots)
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1  # disabled for Vault — vm.swappiness=0'
+
 - name: Create vault group
   ansible.builtin.group:
     name: "{{ vault_group }}"
