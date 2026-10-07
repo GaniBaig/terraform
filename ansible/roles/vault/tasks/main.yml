@@ -1,0 +1,101 @@
+---
+# Vault role — main tasks
+# Deploys HashiCorp Vault OSS onto a RHEL node and configures it for
+# Raft HA with Azure KMS auto-unseal.
+
+- name: Create vault group
+  ansible.builtin.group:
+    name: "{{ vault_group }}"
+    system: true
+
+- name: Create vault user
+  ansible.builtin.user:
+    name: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    system: true
+    shell: /sbin/nologin
+    create_home: false
+    uid: "{{ vault_user_uid }}"
+
+- name: Create vault directory structure
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: "0750"
+  loop:
+    - "{{ vault_install_dir }}/{{ vault_version }}"
+    - "{{ vault_plugin_dir }}"
+    - "{{ vault_data_dir }}"
+
+- name: Download Vault OSS binary
+  ansible.builtin.get_url:
+    url: "https://releases.hashicorp.com/vault/{{ vault_version }}/vault_{{ vault_version }}_linux_amd64.zip"
+    dest: "/tmp/vault_{{ vault_version }}_linux_amd64.zip"
+    mode: "0644"
+
+- name: Unzip Vault binary
+  ansible.builtin.unarchive:
+    src: "/tmp/vault_{{ vault_version }}_linux_amd64.zip"
+    dest: "{{ vault_install_dir }}/{{ vault_version }}/"
+    remote_src: true
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: "0750"
+
+- name: Create vault binary symlink
+  ansible.builtin.file:
+    src: "{{ vault_install_dir }}/{{ vault_version }}/vault"
+    dest: "{{ vault_install_dir }}/vault"
+    state: link
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+
+- name: Copy TLS certificates to vault TLS directory
+  ansible.builtin.copy:
+    src: "{{ item.src }}"
+    dest: "{{ item.dest }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: "0640"
+  loop:
+    - { src: "files/server.crt", dest: "{{ vault_tls_cert_file }}" }
+    - { src: "files/server.key", dest: "{{ vault_tls_key_file }}" }
+    - { src: "files/ca.crt",     dest: "{{ vault_tls_ca_file }}" }
+  notify: restart vault
+
+- name: Deploy vault configuration from template
+  ansible.builtin.template:
+    src: vault.hcl.j2
+    dest: "{{ vault_config_file }}"
+    owner: "{{ vault_user }}"
+    group: "{{ vault_group }}"
+    mode: "0640"
+  notify: restart vault
+
+- name: Deploy vault systemd unit from template
+  ansible.builtin.template:
+    src: vault.service.j2
+    dest: /etc/systemd/system/vault.service
+    owner: root
+    group: root
+    mode: "0644"
+  notify:
+    - daemon reload
+    - restart vault
+
+- name: Enable and start vault service
+  ansible.builtin.systemd:
+    name: vault
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Add vault binary to system PATH
+  ansible.builtin.copy:
+    dest: /etc/profile.d/vault.sh
+    content: |
+      export PATH=$PATH:{{ vault_install_dir }}
+      export VAULT_CACERT="{{ vault_tls_ca_file }}"
+    mode: "0644"

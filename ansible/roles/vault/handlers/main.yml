@@ -1,0 +1,13 @@
+---
+# Vault role — handlers
+
+- name: daemon reload
+  ansible.builtin.systemd:
+    daemon_reload: true
+  listen: daemon reload
+
+- name: restart vault
+  ansible.builtin.systemd:
+    name: vault
+    state: restarted
+  listen: restart vault

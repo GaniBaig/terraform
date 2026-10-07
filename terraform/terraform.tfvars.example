@@ -1,0 +1,20 @@
+# Copy this file to terraform.tfvars and fill in the real values.
+# Do NOT commit terraform.tfvars to git — it contains sensitive values.
+
+resource_group_name     = "rg-vault-aci-sandbox"
+location                = "eastus2"
+subnet_id               = "/subscriptions/<sub-id>/resourceGroups/<rg>/providers/Microsoft.Network/virtualNetworks/<vnet>/subnets/<subnet>"
+
+vm_size                 = "Standard_D4s_v3"
+os_disk_size_gb         = 100
+vault_data_disk_size_gb = 100
+vault_version           = "1.21.0"
+
+# Azure KMS Auto-Unseal — from existing-sandbox.txt
+azure_tenant_id         = "ff3213cc-c3f6-45d4-a104-8f7823656fec"
+azure_keyvault_name     = "Sandbox-vault-bf44f35d"
+azure_kms_key_name      = "generated-key"
+
+# NOTE: client_id and client_secret are NOT set here.
+# Use Azure Managed Identity on the VMs instead — no credentials in config files.
+# Assign the VM identity the "Key Vault Crypto User" role on the Azure Key Vault.

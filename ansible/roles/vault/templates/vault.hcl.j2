@@ -1,0 +1,42 @@
+ui               = true
+disable_mlock    = false
+cluster_name     = "{{ vault_cluster_name }}"
+max_lease_ttl    = "{{ vault_max_lease_ttl }}"
+default_lease_ttl = "{{ vault_default_lease_ttl }}"
+disable_clustering = "{{ vault_disable_clustering }}"
+plugin_directory = "{{ vault_plugin_dir }}"
+
+api_addr     = "https://{{ ansible_host }}:{{ vault_api_port }}"
+cluster_addr = "https://{{ ansible_host }}:{{ vault_cluster_port }}"
+
+listener "tcp" {
+  address                         = "{{ ansible_host }}:{{ vault_api_port }}"
+  cluster_address                 = "{{ ansible_host }}:{{ vault_cluster_port }}"
+  tls_cert_file                   = "{{ vault_tls_cert_file }}"
+  tls_key_file                    = "{{ vault_tls_key_file }}"
+  tls_client_ca_file              = "{{ vault_tls_ca_file }}"
+  tls_min_version                 = "{{ vault_tls_min_version }}"
+  tls_prefer_server_cipher_suites = "{{ vault_tls_prefer_server_cipher_suites }}"
+  tls_disable                     = "false"
+}
+
+storage "raft" {
+  path    = "{{ vault_data_dir }}/"
+  node_id = "{{ hostvars[inventory_hostname]['node_id'] }}"
+
+  {% for host in groups['vault_nodes'] %}
+  retry_join {
+    leader_api_addr     = "https://{{ hostvars[host]['ansible_host'] }}:{{ vault_api_port }}"
+    leader_ca_cert_file = "{{ vault_tls_ca_file }}"
+  }
+  {% endfor %}
+}
+
+# Azure KMS Auto-Unseal
+# Uses Azure Managed Identity — no client_id or client_secret required
+# VM identity must have "Key Vault Crypto User" role on the AKV
+seal "azurekeyvault" {
+  tenant_id  = "{{ azure_tenant_id }}"
+  vault_name = "{{ azure_keyvault_name }}"
+  key_name   = "{{ azure_kms_key_name }}"
+}

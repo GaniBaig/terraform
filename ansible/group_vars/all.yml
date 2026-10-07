@@ -1,0 +1,54 @@
+---
+# Vault ACI Sandbox — group variables
+# All values sourced from existing-sandbox.txt Track B audit (10/6/2026)
+
+# ---------------------------------------------------------------------------
+# Vault binary & version
+# ---------------------------------------------------------------------------
+vault_version: "1.21.0"
+vault_install_dir: "/vault"
+vault_binary: "{{ vault_install_dir }}/{{ vault_version }}/vault"
+vault_config_dir: "{{ vault_install_dir }}"
+vault_data_dir: "{{ vault_install_dir }}"
+vault_tls_dir: "{{ vault_install_dir }}/{{ vault_version }}"
+vault_plugin_dir: "{{ vault_install_dir }}/{{ vault_version }}/vault_plugins"
+vault_config_file: "{{ vault_config_dir }}/vault_main.hcl"
+
+# ---------------------------------------------------------------------------
+# Cluster settings — from existing sandbox (vault_main.hcl)
+# ---------------------------------------------------------------------------
+vault_cluster_name: "vault-ilc"
+vault_max_lease_ttl: "768h"
+vault_default_lease_ttl: "768h"
+vault_disable_clustering: "False"
+vault_api_port: 8200
+vault_cluster_port: 8201
+
+# ---------------------------------------------------------------------------
+# TLS certificate paths (new certs must be provisioned before deployment)
+# Request from QVC Enterprise CA (QVC ENT CA 81) via Venafi
+# Existing cert CN: westchester-dev-vault — new CNs must match ACI hostnames
+# Existing cert EXPIRES: Dec 2, 2026 — do NOT copy existing certs
+# ---------------------------------------------------------------------------
+vault_tls_cert_file: "{{ vault_tls_dir }}/server.crt"
+vault_tls_key_file: "{{ vault_tls_dir }}/server.key"
+vault_tls_ca_file: "{{ vault_tls_dir }}/ca.crt"
+vault_tls_min_version: "tls12"
+vault_tls_prefer_server_cipher_suites: "true"    # hardened — was false on existing cluster
+
+# ---------------------------------------------------------------------------
+# Azure KMS Auto-Unseal — from existing-sandbox.txt
+# Uses Azure Managed Identity — NO client_secret in config
+# Managed Identity must be assigned "Key Vault Crypto User" on the AKV
+# ---------------------------------------------------------------------------
+azure_tenant_id: "ff3213cc-c3f6-45d4-a104-8f7823656fec"
+azure_keyvault_name: "Sandbox-vault-bf44f35d"
+azure_kms_key_name: "generated-key"
+# azure_client_id and azure_client_secret intentionally omitted — use Managed Identity
+
+# ---------------------------------------------------------------------------
+# Vault service user
+# ---------------------------------------------------------------------------
+vault_user: "vault"
+vault_group: "vault"
+vault_user_uid: 1001
